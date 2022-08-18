@@ -2,14 +2,14 @@
 
 namespace Amp\Cache\Test;
 
-use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
+use Amp\Cache\LocalCache;
 
-class ArrayCacheLimitedTest extends CacheTest
+class LocalCacheLimitedTest extends CacheTest
 {
     protected function createCache(): Cache
     {
-        return new ArrayCache(5000, 5);
+        return new LocalCache(5000, 5);
     }
 
     public function testEntryIsNotReturnedAfterCacheLimitReached(): \Generator

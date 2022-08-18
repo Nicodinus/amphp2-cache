@@ -13,7 +13,7 @@ interface Cache
      *
      * @param $key string Cache key.
      *
-     * @return Promise<string|null> Resolves to the cached value nor `null` if it doesn't exist or fails with a
+     * @return Promise<mixed|null> Resolves to the cached value nor `null` if it doesn't exist or fails with a
      * CacheException on failure.
      */
     public function get(string $key): Promise;
@@ -24,14 +24,18 @@ interface Cache
      * The eventual resolution value of the resulting promise is unimportant. The success or failure of the promise
      * indicates the operation's success.
      *
-     * @param $key string Cache key.
-     * @param $value string Value to cache.
-     * @param $ttl int Timeout in seconds. The default `null` $ttl value indicates no timeout. Values less than 0 MUST
+     * @param string $key Cache key.
+     * @param mixed $value Value to cache.
+     * @param int|null $ttl Timeout in seconds. The default `null` $ttl value indicates no timeout. Values less than 0 MUST
      * throw an \Error.
      *
      * @return Promise<void> Resolves either successfully or fails with a CacheException on failure.
+     *
+     * @throws CacheException On failure to store the cached value
+     *
+     * @psalm-param mixed $value
      */
-    public function set(string $key, string $value, int $ttl = null): Promise;
+    public function set(string $key, $value, int $ttl = null): Promise;
 
     /**
      * Deletes a value associated with the given key if it exists.

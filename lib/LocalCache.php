@@ -7,21 +7,25 @@ use Amp\Promise;
 use Amp\Struct;
 use Amp\Success;
 
-final class ArrayCache implements Cache
+final class LocalCache implements Cache
 {
     /** @var object */
-    private $sharedState;
-    /** @var string */
-    private $ttlWatcherId;
+    private object $sharedState;
+
+    /** @var string|null */
+    private ?string $ttlWatcherId;
+
     /** @var int|null */
-    private $maxSize;
+    private ?int $maxSize;
 
     /**
      * @param int $gcInterval The frequency in milliseconds at which expired cache entries should be garbage collected.
-     * @param int $maxSize The maximum size of cache array (number of elements).
+     * @param int|null $maxSize The maximum size of cache array (number of elements).
      */
     public function __construct(int $gcInterval = 5000, int $maxSize = null)
     {
+        $this->maxSize = $maxSize;
+
         // By using a shared state object we're able to use `__destruct()` for "normal" garbage collection of both this
         // instance and the loop's watcher. Otherwise this object could only be GC'd when the TTL watcher was cancelled
         // at the loop layer.
@@ -57,18 +61,22 @@ final class ArrayCache implements Cache
             }
         };
 
-        $this->ttlWatcherId = Loop::repeat($gcInterval, [$sharedState, "collectGarbage"]);
-        $this->maxSize = $maxSize;
-
+        $this->ttlWatcherId = Loop::repeat($gcInterval, \Closure::fromCallable([$sharedState, "collectGarbage"]));
         Loop::unreference($this->ttlWatcherId);
     }
 
+    /**
+     * @return void
+     */
     public function __destruct()
     {
         $this->sharedState->cache = [];
         $this->sharedState->cacheTimeouts = [];
 
-        Loop::cancel($this->ttlWatcherId);
+        if (!empty($this->ttlWatcherId)) {
+            Loop::cancel($this->ttlWatcherId);
+            $this->ttlWatcherId = null;
+        }
     }
 
     /** @inheritdoc */
@@ -90,9 +98,17 @@ final class ArrayCache implements Cache
         return new Success($this->sharedState->cache[$key]);
     }
 
-    /** @inheritdoc */
-    public function set(string $key, string $value, int $ttl = null): Promise
+    /**
+     * @inheritDoc
+     * @psalm-param mixed $value
+     * @return Promise<void>
+     */
+    public function set(string $key, $value, int $ttl = null): Promise
     {
+        if ($value === null) {
+            throw new CacheException('Cannot store NULL in ' . self::class);
+        }
+
         if ($ttl === null) {
             unset($this->sharedState->cacheTimeouts[$key]);
         } elseif ($ttl >= 0) {

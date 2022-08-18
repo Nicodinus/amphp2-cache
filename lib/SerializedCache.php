@@ -2,7 +2,6 @@
 
 namespace Amp\Cache;
 
-use Amp\Failure;
 use Amp\Promise;
 use Amp\Serialization\SerializationException;
 use Amp\Serialization\Serializer;
@@ -11,14 +10,18 @@ use function Amp\call;
 /**
  * @template TValue
  */
-final class SerializedCache
+final class SerializedCache implements Cache
 {
     /** @var Cache */
-    private $cache;
+    private Cache $cache;
 
     /** @var Serializer */
-    private $serializer;
+    private Serializer $serializer;
 
+    /**
+     * @param Cache $cache
+     * @param Serializer $serializer
+     */
     public function __construct(Cache $cache, Serializer $serializer)
     {
         $this->cache = $cache;
@@ -54,26 +57,25 @@ final class SerializedCache
      *
      * @param $key   string Cache key.
      * @param $value mixed Value to cache.
-     * @param $ttl   int Timeout in seconds. The default `null` $ttl value indicates no timeout. Values less than 0 MUST
+     * @param $ttl   int|null Timeout in seconds. The default `null` $ttl value indicates no timeout. Values less than 0 MUST
      *               throw an \Error.
      *
      * @psalm-param TValue $value
      *
      * @return Promise<void> Resolves either successfully or fails with a CacheException or SerializationException.
      *
+     * @throws CacheException On failure to store the cached value
+     * @throws SerializationException
+     *
      * @see Cache::set()
      */
     public function set(string $key, $value, int $ttl = null): Promise
     {
         if ($value === null) {
-            return new Failure(new CacheException('Cannot store NULL in serialized cache'));
+            throw new CacheException('Cannot store NULL in ' . self::class);
         }
 
-        try {
-            $value = $this->serializer->serialize($value);
-        } catch (SerializationException $exception) {
-            return new Failure($exception);
-        }
+        $value = $this->serializer->serialize($value);
 
         return $this->cache->set($key, $value, $ttl);
     }

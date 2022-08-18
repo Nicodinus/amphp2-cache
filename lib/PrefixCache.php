@@ -6,9 +6,16 @@ use Amp\Promise;
 
 final class PrefixCache implements Cache
 {
-    private $cache;
-    private $keyPrefix;
+    /** @var Cache */
+    private Cache $cache;
 
+    /** @var string */
+    private string $keyPrefix;
+
+    /**
+     * @param Cache $cache
+     * @param string $keyPrefix
+     */
     public function __construct(Cache $cache, string $keyPrefix)
     {
         $this->cache = $cache;
@@ -31,8 +38,12 @@ final class PrefixCache implements Cache
         return $this->cache->get($this->keyPrefix . $key);
     }
 
-    /** @inheritdoc */
-    public function set(string $key, string $value, int $ttl = null): Promise
+    /**
+     * @inheritDoc
+     * @psalm-param mixed $value
+     * @return Promise<void>
+     */
+    public function set(string $key, $value, int $ttl = null): Promise
     {
         return $this->cache->set($this->keyPrefix . $key, $value, $ttl);
     }

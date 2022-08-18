@@ -16,8 +16,12 @@ class NullCache implements Cache
         return new Success;
     }
 
-    /** @inheritdoc */
-    public function set(string $key, string $value, int $ttl = null): Promise
+    /**
+     * @inheritDoc
+     * @psalm-param mixed $value
+     * @return Promise<void>
+     */
+    public function set(string $key, $value, int $ttl = null): Promise
     {
         /** @var Promise<void> */
         return new Success;
