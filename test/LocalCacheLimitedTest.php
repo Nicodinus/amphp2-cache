@@ -17,7 +17,7 @@ class LocalCacheLimitedTest extends CacheTest
         $cache = $this->createCache();
 
         for ($i = 1; $i <= 6; $i++) {
-            yield $cache->set("foo_$i", $i, 0);
+            yield $cache->set("foo_{$i}", $i, 0);
         }
 
         $this->assertNull(yield $cache->get("foo_1"));

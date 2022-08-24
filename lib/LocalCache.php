@@ -24,24 +24,34 @@ final class LocalCache implements Cache
      */
     public function __construct(int $gcInterval = 5000, int $maxSize = null)
     {
+        if ($maxSize !== null && $maxSize < 1) {
+            throw new \Error("Invalid cache max size ({$maxSize}; integer >= 0 or null required");
+        }
         $this->maxSize = $maxSize;
+
+        if ($gcInterval < 1) {
+            $gcInterval = 5000;
+        }
 
         // By using a shared state object we're able to use `__destruct()` for "normal" garbage collection of both this
         // instance and the loop's watcher. Otherwise this object could only be GC'd when the TTL watcher was cancelled
         // at the loop layer.
-        $this->sharedState = $sharedState = new class {
+        $this->sharedState = new class {
             use Struct;
 
             /** @var string[] */
-            public $cache = [];
+            public array $cache = [];
             /** @var int[] */
-            public $cacheTimeouts = [];
+            public array $cacheTimeouts = [];
             /** @var bool */
-            public $isSortNeeded = false;
+            public bool $isSortNeeded = false;
 
+            /**
+             * @return void
+             */
             public function collectGarbage(): void
             {
-                $now = \time();
+                $now = \hrtime(true);
 
                 if ($this->isSortNeeded) {
                     \asort($this->cacheTimeouts);
@@ -61,7 +71,7 @@ final class LocalCache implements Cache
             }
         };
 
-        $this->ttlWatcherId = Loop::repeat($gcInterval, \Closure::fromCallable([$sharedState, "collectGarbage"]));
+        $this->ttlWatcherId = Loop::repeat($gcInterval, \Closure::fromCallable([$this->sharedState, "collectGarbage"]));
         Loop::unreference($this->ttlWatcherId);
     }
 
@@ -83,16 +93,16 @@ final class LocalCache implements Cache
     public function get(string $key): Promise
     {
         if (!isset($this->sharedState->cache[$key])) {
-            return new Success(null);
+            return new Success;
         }
 
-        if (isset($this->sharedState->cacheTimeouts[$key]) && \time() > $this->sharedState->cacheTimeouts[$key]) {
+        if (isset($this->sharedState->cacheTimeouts[$key]) && \hrtime(true) > $this->sharedState->cacheTimeouts[$key]) {
             unset(
                 $this->sharedState->cache[$key],
                 $this->sharedState->cacheTimeouts[$key]
             );
 
-            return new Success(null);
+            return new Success;
         }
 
         return new Success($this->sharedState->cache[$key]);
@@ -112,18 +122,19 @@ final class LocalCache implements Cache
         if ($ttl === null) {
             unset($this->sharedState->cacheTimeouts[$key]);
         } elseif ($ttl >= 0) {
-            $expiry = \time() + $ttl;
+            $expiry = \hrtime(true) + $ttl * 1e+9;
             $this->sharedState->cacheTimeouts[$key] = $expiry;
             $this->sharedState->isSortNeeded = true;
         } else {
             throw new \Error("Invalid cache TTL ({$ttl}; integer >= 0 or null required");
         }
 
-        unset($this->sharedState->cache[$key]);
-        if (\count($this->sharedState->cache) === $this->maxSize) {
-            \array_shift($this->sharedState->cache);
+        if ($this->maxSize !== null) {
+            unset($this->sharedState->cache[$key]);
+            while (\sizeof($this->sharedState->cache) > $this->maxSize) {
+                \array_shift($this->sharedState->cache);
+            }
         }
-
         $this->sharedState->cache[$key] = $value;
 
         /** @var Promise<void> */
