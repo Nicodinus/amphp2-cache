@@ -18,6 +18,8 @@ abstract class CacheTest extends AsyncTestCase
 
         yield $cache->set("mykey", "myvalue", 10);
         $this->assertSame("myvalue", yield $cache->get("mykey"));
+
+        yield $cache->delete("mykey");
     }
 
     public function testEntryIsNotReturnedAfterTTLHasPassed(): \Generator
