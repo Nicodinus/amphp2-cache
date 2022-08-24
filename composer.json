@@ -23,14 +23,13 @@
   "require": {
 	"php": ">=7.4",
 	"amphp/amp": "^2.6",
-	"amphp/serialization": "^1",
-	"amphp/sync": "^1.4"
+	"amphp/serialization": "^1"
   },
   "require-dev": {
-	"amphp/phpunit-util": "^1.1",
-	"phpunit/phpunit": "^6 | ^7 | ^8 | ^9",
-	"amphp/php-cs-fixer-config": "dev-master",
-	"vimeo/psalm": "^4"
+	"amphp/phpunit-util": "^2",
+	"phpunit/phpunit": "^9.5",
+	"nicodinus/php-cs-fixer-config": "dev-master",
+    "vimeo/psalm": "^4.26"
   },
   "autoload": {
 	"psr-4": {

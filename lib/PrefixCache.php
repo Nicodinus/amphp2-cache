@@ -32,7 +32,7 @@ final class PrefixCache implements Cache
         return $this->keyPrefix;
     }
 
-    /** @inheritdoc */
+    /** @inheritDoc */
     public function get(string $key): Promise
     {
         return $this->cache->get($this->keyPrefix . $key);
@@ -48,7 +48,7 @@ final class PrefixCache implements Cache
         return $this->cache->set($this->keyPrefix . $key, $value, $ttl);
     }
 
-    /** @inheritdoc */
+    /** @inheritDoc */
     public function delete(string $key): Promise
     {
         return $this->cache->delete($this->keyPrefix . $key);
