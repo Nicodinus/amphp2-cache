@@ -4,7 +4,6 @@ namespace Amp\Cache;
 
 use Amp\ByteStream\InMemoryStream;
 use Amp\ByteStream\InputStream;
-use Amp\ByteStream\Payload;
 use Amp\Cache\Internal\CompletedIterator;
 use Amp\Iterator;
 use Amp\Loop;
@@ -150,8 +149,22 @@ final class LocalCache implements Cache
     public function setStream(string $key, InputStream $stream, int $ttl = null): Promise
     {
         return call(function () use (&$key, &$stream, &$ttl) {
-            $value = yield (new Payload($stream))->buffer();
-            $this->_set($key, $value, $ttl);
+            $buffer = null;
+            while (true) {
+                /** @var string|null $chunk */
+                $chunk = yield $stream->read();
+                if ($chunk === null) {
+                    break;
+                }
+
+                if ($buffer === null) {
+                    $buffer = $chunk;
+                } else {
+                    $buffer .= $chunk;
+                }
+            }
+
+            $this->_set($key, $buffer, $ttl);
         });
     }
 

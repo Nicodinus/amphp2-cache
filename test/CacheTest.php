@@ -3,17 +3,49 @@
 namespace Amp\Cache\Test;
 
 use Amp\ByteStream\InMemoryStream;
-use Amp\ByteStream\Payload;
+use Amp\ByteStream\InputStream;
 use Amp\Cache\Cache;
 use Amp\Emitter;
 use Amp\PHPUnit\AsyncTestCase;
+use Amp\Promise;
 use function Amp\asyncCall;
+use function Amp\call;
 use function Amp\delay;
 use function Amp\Iterator\toArray;
 
 abstract class CacheTest extends AsyncTestCase
 {
+    /**
+     * @return Cache
+     */
     abstract protected function createCache(): Cache;
+
+    /**
+     * @param InputStream $stream
+     *
+     * @return Promise<string|null>
+     */
+    protected function buffer(InputStream $stream): Promise
+    {
+        return call(function () use (&$stream) {
+            $buffer = null;
+            while (true) {
+                /** @var string|null $chunk */
+                $chunk = yield $stream->read();
+                if ($chunk === null) {
+                    break;
+                }
+
+                if ($buffer === null) {
+                    $buffer = $chunk;
+                } else {
+                    $buffer .= $chunk;
+                }
+            }
+
+            return $buffer;
+        });
+    }
 
     public function testGet(): \Generator
     {
@@ -57,11 +89,11 @@ abstract class CacheTest extends AsyncTestCase
     {
         $cache = $this->createCache();
 
-        $result = yield (new Payload($cache->getStream("mykey")))->buffer();
-        $this->assertTrue(\strlen($result) == 0);
+        $result = yield $this->buffer($cache->getStream("mykey"));
+        $this->assertNull($result);
 
         yield $cache->setStream("mykey", new InMemoryStream("myvalue"), 10);
-        $result = yield (new Payload($cache->getStream("mykey")))->buffer();
+        $result = yield $this->buffer($cache->getStream("mykey"));
         $this->assertSame("myvalue", $result);
 
         yield $cache->delete("mykey");

@@ -9,6 +9,7 @@ use Amp\Success;
 
 /**
  * @template T
+ * @internal
  */
 class CompletedIterator implements Iterator
 {
