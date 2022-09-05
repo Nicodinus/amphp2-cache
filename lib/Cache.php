@@ -9,6 +9,13 @@ use Amp\Promise;
 interface Cache
 {
     /**
+     * @param string $key
+     *
+     * @return Promise<bool>
+     */
+    public function exist(string $key): Promise;
+
+    /**
      * Gets a value associated with the given key.
      *
      * If the specified key doesn't exist implementations MUST succeed the resulting promise with `null`.

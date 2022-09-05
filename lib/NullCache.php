@@ -17,6 +17,14 @@ final class NullCache implements Cache
     /**
      * @inheritDoc
      */
+    public function exist(string $key): Promise
+    {
+        return new Success(false);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function get(string $key): Promise
     {
         return new Success;

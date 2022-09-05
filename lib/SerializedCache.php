@@ -35,6 +35,14 @@ final class SerializedCache implements Cache
     }
 
     /**
+     * @inheritDoc
+     */
+    public function exist(string $key): Promise
+    {
+        return $this->cache->exist($key);
+    }
+
+    /**
      * Fetch a value from the cache and unserialize it.
      *
      * @param $key string Cache key.

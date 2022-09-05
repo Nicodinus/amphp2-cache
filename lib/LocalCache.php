@@ -99,6 +99,14 @@ final class LocalCache implements Cache
     /**
      * @inheritDoc
      */
+    public function exist(string $key): Promise
+    {
+        return new Success($this->_get($key) !== null);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function get(string $key): Promise
     {
         return new Success($this->_get($key));
