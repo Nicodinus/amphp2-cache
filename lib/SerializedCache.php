@@ -2,12 +2,12 @@
 
 namespace Amp\Cache;
 
+use Amp\ByteStream\InputStream;
 use Amp\Coroutine;
 use Amp\Emitter;
 use Amp\Iterator;
 use Amp\Promise;
 use Amp\Serialization\Serializer;
-use Symfony\Component\Process\InputStream;
 use function Amp\asyncCall;
 use function Amp\call;
 
