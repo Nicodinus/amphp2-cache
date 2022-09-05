@@ -2,8 +2,6 @@
 
 namespace Amp\Cache;
 
-use Amp\ByteStream\InputStream;
-use Amp\Iterator;
 use Amp\Promise;
 
 final class PrefixCache implements Cache
@@ -55,17 +53,9 @@ final class PrefixCache implements Cache
     /**
      * @inheritDoc
      */
-    public function getIterator(string $key): Iterator
+    public function getItem(string $key): Promise
     {
-        return $this->cache->getIterator($this->keyPrefix . $key);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getStream(string $key): InputStream
-    {
-        return $this->cache->getStream($this->keyPrefix . $key);
+        return $this->cache->getItem($this->keyPrefix . $key);
     }
 
     /**
@@ -74,22 +64,6 @@ final class PrefixCache implements Cache
     public function set(string $key, $value, int $ttl = null): Promise
     {
         return $this->cache->set($this->keyPrefix . $key, $value, $ttl);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setIterator(string $key, Iterator $iterator, int $ttl = null): Promise
-    {
-        return $this->cache->setIterator($this->keyPrefix . $key, $iterator, $ttl);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setStream(string $key, InputStream $stream, int $ttl = null): Promise
-    {
-        return $this->cache->setStream($this->keyPrefix . $key, $stream, $ttl);
     }
 
     /**

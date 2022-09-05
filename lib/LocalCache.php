@@ -2,9 +2,8 @@
 
 namespace Amp\Cache;
 
-use Amp\ByteStream\InMemoryStream;
 use Amp\ByteStream\InputStream;
-use Amp\Cache\Internal\CompletedIterator;
+use Amp\Coroutine;
 use Amp\Iterator;
 use Amp\Loop;
 use Amp\Promise;
@@ -115,17 +114,14 @@ final class LocalCache implements Cache
     /**
      * @inheritDoc
      */
-    public function getIterator(string $key): Iterator
+    public function getItem(string $key): Promise
     {
-        return CompletedIterator::complete($this->_get($key));
-    }
+        $result = $this->_get($key);
+        if ($result === null) {
+            return new Success;
+        }
 
-    /**
-     * @inheritDoc
-     */
-    public function getStream(string $key): InputStream
-    {
-        return new InMemoryStream($this->_get($key));
+        return new Success(new CacheItem($result));
     }
 
     /**
@@ -136,43 +132,28 @@ final class LocalCache implements Cache
      */
     public function set(string $key, $value, int $ttl = null): Promise
     {
-        $this->_set($key, $value, $ttl);
-        return new Success;
-    }
+        return call(function () use (&$key, &$value, &$ttl) {
+            if (\is_callable($value)) {
+                $value = call($value);
+            } elseif ($value instanceof \Generator) {
+                $value = new Coroutine($value);
+            }
 
-    /**
-     * @inheritDoc
-     */
-    public function setIterator(string $key, Iterator $iterator, int $ttl = null): Promise
-    {
-        return call(function () use (&$key, &$iterator, &$ttl) {
-            $value = yield Iterator\toArray($iterator);
-            $this->_set($key, $value, $ttl);
-        });
-    }
+            if ($value instanceof Promise) {
+                $value = yield $value;
+            }
 
-    /**
-     * @inheritDoc
-     */
-    public function setStream(string $key, InputStream $stream, int $ttl = null): Promise
-    {
-        return call(function () use (&$key, &$stream, &$ttl) {
-            $buffer = null;
-            while (true) {
-                /** @var string|null $chunk */
-                $chunk = yield $stream->read();
-                if ($chunk === null) {
-                    break;
-                }
-
-                if ($buffer === null) {
-                    $buffer = $chunk;
+            if ($value instanceof CacheItem) {
+                if ($value->isIterable()) {
+                    $value = yield Iterator\toArray($value->getIterator());
+                } elseif ($value->isStream()) {
+                    $value = yield $this->buffer($value->getStream());
                 } else {
-                    $buffer .= $chunk;
+                    $value = $value->getResult();
                 }
             }
 
-            $this->_set($key, $buffer, $ttl);
+            $this->_set($key, $value, $ttl);
         });
     }
 
@@ -248,5 +229,33 @@ final class LocalCache implements Cache
             }
         }
         $this->sharedState->cache[$key] = $value;
+    }
+
+    /**
+     * @param InputStream $stream
+     *
+     * @return Promise<string|null>
+     */
+    protected function buffer(InputStream $stream): Promise
+    {
+        return call(function () use (&$stream) {
+            $buffer = null;
+
+            while (true) {
+                /** @var string|null $chunk */
+                $chunk = yield $stream->read();
+                if ($chunk === null) {
+                    break;
+                }
+
+                if ($buffer === null) {
+                    $buffer = $chunk;
+                } else {
+                    $buffer .= $chunk;
+                }
+            }
+
+            return $buffer;
+        });
     }
 }
