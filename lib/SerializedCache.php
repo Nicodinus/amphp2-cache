@@ -2,9 +2,13 @@
 
 namespace Amp\Cache;
 
+use Amp\ByteStream\InputStream;
+use Amp\Emitter;
+use Amp\Iterator;
 use Amp\Promise;
 use Amp\Serialization\SerializationException;
 use Amp\Serialization\Serializer;
+use function Amp\asyncCall;
 use function Amp\call;
 
 /**
@@ -17,6 +21,8 @@ final class SerializedCache implements Cache
 
     /** @var Serializer */
     private Serializer $serializer;
+
+    //
 
     /**
      * @param Cache $cache
@@ -53,6 +59,50 @@ final class SerializedCache implements Cache
     }
 
     /**
+     * @inheritDoc
+     */
+    public function getIterator(string $key): Iterator
+    {
+        if (\is_callable([$this->serializer, 'unserializeIterator'])) {
+            return $this->serializer->unserializeIterator($this->cache->getIterator($key));
+        }
+
+        $emitter = new Emitter();
+
+        asyncCall(function () use (&$key, &$emitter) {
+            try {
+                $iterator = $this->cache->getIterator($key);
+
+                while (true === yield $iterator->advance()) {
+                    if ($iterator->getCurrent() === null) {
+                        continue;
+                    }
+
+                    yield $emitter->emit($this->serializer->unserialize($iterator->getCurrent()));
+                }
+
+                $emitter->complete();
+            } catch (\Throwable $exception) {
+                $emitter->fail($exception);
+            }
+        });
+
+        return $emitter->iterate();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getStream(string $key): InputStream
+    {
+        if (\is_callable([$this->serializer, 'unserializeStream'])) {
+            return $this->serializer->unserializeStream($this->cache->getStream($key));
+        }
+
+        throw new \BadMethodCallException("Can't unserialize data from stream, there is no realization for unserializing stream!");
+    }
+
+    /**
      * Serializes a value and stores its serialization to the cache.
      *
      * @param $key   string Cache key.
@@ -78,6 +128,47 @@ final class SerializedCache implements Cache
         $value = $this->serializer->serialize($value);
 
         return $this->cache->set($key, $value, $ttl);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setIterator(string $key, Iterator $iterator, int $ttl = null): Promise
+    {
+        return call(function () use (&$key, &$iterator, &$ttl) {
+            $emitter = new Emitter();
+            $promise = $this->cache->setIterator($key, $emitter->iterate(), $ttl);
+
+            try {
+                while (true === yield $iterator->advance()) {
+                    if ($iterator->getCurrent() === null) {
+                        continue;
+                    }
+
+                    $value = $this->serializer->serialize($iterator->getCurrent());
+                    yield $emitter->emit($value);
+                }
+
+                $emitter->complete();
+            } catch (\Throwable $exception) {
+                $emitter->fail($exception);
+                throw $exception;
+            }
+
+            return $promise;
+        });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setStream(string $key, InputStream $stream, int $ttl = null): Promise
+    {
+        if (\is_callable([$this->serializer, 'serializeStream'])) {
+            return $this->setStream($key, $this->serializer->serializeStream($stream), $ttl);
+        }
+
+        throw new \BadMethodCallException("Can't serialize data from stream, there is no realization for serializing stream!");
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace Amp\Cache;
 
+use Amp\ByteStream\InputStream;
+use Amp\Iterator;
 use Amp\Promise;
 
 interface Cache
@@ -17,6 +19,22 @@ interface Cache
      * CacheException on failure.
      */
     public function get(string $key): Promise;
+
+    /**
+     * @param string $key
+     *
+     * @return Iterator<mixed>
+     */
+    public function getIterator(string $key): Iterator;
+
+    /**
+     * @param string $key
+     *
+     * @return InputStream
+     *
+     * @see Cache::get()
+     */
+    public function getStream(string $key): InputStream;
 
     /**
      * Sets a value associated with the given key. Overrides existing values (if they exist).
@@ -36,6 +54,28 @@ interface Cache
      * @psalm-param mixed $value
      */
     public function set(string $key, $value, int $ttl = null): Promise;
+
+    /**
+     * @param string $key
+     * @param Iterator<mixed> $iterator
+     * @param int|null $ttl
+     *
+     * @return Promise<void>
+     *
+     * @see Cache::set()
+     */
+    public function setIterator(string $key, Iterator $iterator, int $ttl = null): Promise;
+
+    /**
+     * @param string $key
+     * @param InputStream $stream
+     * @param int|null $ttl
+     *
+     * @return Promise<void>
+     *
+     * @see Cache::set()
+     */
+    public function setStream(string $key, InputStream $stream, int $ttl = null): Promise;
 
     /**
      * Deletes a value associated with the given key if it exists.

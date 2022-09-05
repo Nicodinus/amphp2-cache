@@ -2,10 +2,16 @@
 
 namespace Amp\Cache;
 
+use Amp\ByteStream\InMemoryStream;
+use Amp\ByteStream\InputStream;
+use Amp\ByteStream\Payload;
+use Amp\Cache\Internal\CompletedIterator;
+use Amp\Iterator;
 use Amp\Loop;
 use Amp\Promise;
 use Amp\Struct;
 use Amp\Success;
+use function Amp\call;
 
 final class LocalCache implements Cache
 {
@@ -17,6 +23,8 @@ final class LocalCache implements Cache
 
     /** @var int|null */
     private ?int $maxSize;
+
+    //
 
     /**
      * @param int $gcInterval The frequency in milliseconds at which expired cache entries should be garbage collected.
@@ -39,7 +47,7 @@ final class LocalCache implements Cache
         $this->sharedState = new class {
             use Struct;
 
-            /** @var string[] */
+            /** @var array */
             public array $cache = [];
             /** @var int[] */
             public array $cacheTimeouts = [];
@@ -89,11 +97,90 @@ final class LocalCache implements Cache
         }
     }
 
-    /** @inheritdoc */
+    /**
+     * @inheritDoc
+     */
     public function get(string $key): Promise
     {
+        return new Success($this->_get($key));
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getIterator(string $key): Iterator
+    {
+        return CompletedIterator::complete($this->_get($key));
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getStream(string $key): InputStream
+    {
+        return new InMemoryStream($this->_get($key));
+    }
+
+    /**
+     * @inheritDoc
+     *
+     * @psalm-suppress InvalidReturnStatement
+     * @psalm-suppress InvalidReturnType
+     */
+    public function set(string $key, $value, int $ttl = null): Promise
+    {
+        $this->_set($key, $value, $ttl);
+        return new Success;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setIterator(string $key, Iterator $iterator, int $ttl = null): Promise
+    {
+        return call(function () use (&$key, &$iterator, &$ttl) {
+            $value = yield Iterator\toArray($iterator);
+            $this->_set($key, $value, $ttl);
+        });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setStream(string $key, InputStream $stream, int $ttl = null): Promise
+    {
+        return call(function () use (&$key, &$stream, &$ttl) {
+            $value = yield (new Payload($stream))->buffer();
+            $this->_set($key, $value, $ttl);
+        });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function delete(string $key): Promise
+    {
+        $exists = isset($this->sharedState->cache[$key]);
+
+        unset(
+            $this->sharedState->cache[$key],
+            $this->sharedState->cacheTimeouts[$key]
+        );
+
+        return new Success($exists);
+    }
+
+    //
+
+    /**
+     * @param string $key
+     *
+     * @return mixed
+     */
+    protected function _get(string $key)
+    {
         if (!isset($this->sharedState->cache[$key])) {
-            return new Success;
+            return null;
         }
 
         if (isset($this->sharedState->cacheTimeouts[$key]) && \hrtime(true) > $this->sharedState->cacheTimeouts[$key]) {
@@ -102,18 +189,22 @@ final class LocalCache implements Cache
                 $this->sharedState->cacheTimeouts[$key]
             );
 
-            return new Success;
+            return null;
         }
 
-        return new Success($this->sharedState->cache[$key]);
+        return $this->sharedState->cache[$key];
     }
 
     /**
-     * @inheritDoc
-     * @psalm-param mixed $value
-     * @return Promise<void>
+     * @param string $key
+     * @param mixed $value
+     * @param int|null $ttl
+     *
+     * @return void
+     *
+     * @throws CacheException
      */
-    public function set(string $key, $value, int $ttl = null): Promise
+    protected function _set(string $key, $value, int $ttl = null)
     {
         if ($value === null) {
             throw new CacheException('Cannot store NULL in ' . self::class);
@@ -136,21 +227,5 @@ final class LocalCache implements Cache
             }
         }
         $this->sharedState->cache[$key] = $value;
-
-        /** @var Promise<void> */
-        return new Success;
-    }
-
-    /** @inheritdoc */
-    public function delete(string $key): Promise
-    {
-        $exists = isset($this->sharedState->cache[$key]);
-
-        unset(
-            $this->sharedState->cache[$key],
-            $this->sharedState->cacheTimeouts[$key]
-        );
-
-        return new Success($exists);
     }
 }
