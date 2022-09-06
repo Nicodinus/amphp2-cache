@@ -24,15 +24,6 @@ interface Cache
 
     /**
      * @param string $key
-     *
-     * @return Promise<CacheItem|null>
-     *
-     * @throws CacheException
-     */
-    public function getItem(string $key): Promise;
-
-    /**
-     * @param string $key
      * @param mixed $value
      * @param int|null $ttl Timeout in seconds. The default `null` $ttl value indicates no timeout. Values less than 0 applies `null` value.
      *

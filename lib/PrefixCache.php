@@ -53,14 +53,6 @@ final class PrefixCache implements Cache
     /**
      * @inheritDoc
      */
-    public function getItem(string $key): Promise
-    {
-        return $this->cache->getItem($this->keyPrefix . $key);
-    }
-
-    /**
-     * @inheritDoc
-     */
     public function set(string $key, $value, int $ttl = null): Promise
     {
         return $this->cache->set($this->keyPrefix . $key, $value, $ttl);

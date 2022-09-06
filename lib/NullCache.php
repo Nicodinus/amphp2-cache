@@ -28,14 +28,6 @@ final class NullCache implements Cache
 
     /**
      * @inheritDoc
-     */
-    public function getItem(string $key): Promise
-    {
-        return new Success;
-    }
-
-    /**
-     * @inheritDoc
      *
      * @psalm-suppress InvalidReturnStatement
      * @psalm-suppress InvalidReturnType

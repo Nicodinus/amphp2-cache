@@ -2,14 +2,10 @@
 
 namespace Amp\Cache;
 
-use Amp\ByteStream\InputStream;
-use Amp\Coroutine;
-use Amp\Iterator;
 use Amp\Loop;
 use Amp\Promise;
 use Amp\Struct;
 use Amp\Success;
-use function Amp\call;
 
 final class LocalCache implements Cache
 {
@@ -113,48 +109,14 @@ final class LocalCache implements Cache
 
     /**
      * @inheritDoc
-     */
-    public function getItem(string $key): Promise
-    {
-        $result = $this->_get($key);
-        if ($result === null) {
-            return new Success;
-        }
-
-        return new Success(new CacheItem($result));
-    }
-
-    /**
-     * @inheritDoc
      *
      * @psalm-suppress InvalidReturnStatement
      * @psalm-suppress InvalidReturnType
      */
     public function set(string $key, $value, int $ttl = null): Promise
     {
-        return call(function () use (&$key, &$value, &$ttl) {
-            if (\is_callable($value)) {
-                $value = call($value);
-            } elseif ($value instanceof \Generator) {
-                $value = new Coroutine($value);
-            }
-
-            if ($value instanceof Promise) {
-                $value = yield $value;
-            }
-
-            if ($value instanceof CacheItem) {
-                if ($value->isIterable()) {
-                    $value = yield Iterator\toArray($value->getIterator());
-                } elseif ($value->isStream()) {
-                    $value = yield $this->buffer($value->getStream());
-                } else {
-                    $value = $value->getResult();
-                }
-            }
-
-            $this->_set($key, $value, $ttl);
-        });
+        $this->_set($key, $value, $ttl);
+        return new Success;
     }
 
     /**
@@ -229,33 +191,5 @@ final class LocalCache implements Cache
             }
         }
         $this->sharedState->cache[$key] = $value;
-    }
-
-    /**
-     * @param InputStream $stream
-     *
-     * @return Promise<string|null>
-     */
-    protected function buffer(InputStream $stream): Promise
-    {
-        return call(function () use (&$stream) {
-            $buffer = null;
-
-            while (true) {
-                /** @var string|null $chunk */
-                $chunk = yield $stream->read();
-                if ($chunk === null) {
-                    break;
-                }
-
-                if ($buffer === null) {
-                    $buffer = $chunk;
-                } else {
-                    $buffer .= $chunk;
-                }
-            }
-
-            return $buffer;
-        });
     }
 }
