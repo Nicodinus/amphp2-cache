@@ -174,14 +174,12 @@ final class LocalCache implements Cache
             throw new CacheException('Cannot store NULL in ' . self::class);
         }
 
-        if ($ttl === null) {
+        if ($ttl === null || $ttl < 0) {
             unset($this->sharedState->cacheTimeouts[$key]);
-        } elseif ($ttl >= 0) {
+        } else {
             $expiry = \hrtime(true) + $ttl * 1e+9;
             $this->sharedState->cacheTimeouts[$key] = $expiry;
             $this->sharedState->isSortNeeded = true;
-        } else {
-            throw new \Error("Invalid cache TTL ({$ttl}; integer >= 0 or null required");
         }
 
         if ($this->maxSize !== null) {
