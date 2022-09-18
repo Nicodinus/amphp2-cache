@@ -48,6 +48,10 @@ final class SerializedCache implements Cache
                 return null;
             }
 
+            if ($data instanceof InputStream || $data instanceof Iterator) {
+                return $data;
+            }
+
             return $this->serializer->unserialize($data);
         });
     }
