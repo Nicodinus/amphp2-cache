@@ -2,11 +2,11 @@
 
 namespace Amp\Cache;
 
+use Amp\ByteStream\InputStream;
 use Amp\Iterator;
 use Amp\Promise;
 use Amp\Serialization\SerializationException;
 use Amp\Serialization\Serializer;
-use Symfony\Component\Process\InputStream;
 use function Amp\call;
 
 final class SerializedCache implements Cache
