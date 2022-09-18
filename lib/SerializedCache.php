@@ -2,9 +2,11 @@
 
 namespace Amp\Cache;
 
+use Amp\Iterator;
 use Amp\Promise;
 use Amp\Serialization\SerializationException;
 use Amp\Serialization\Serializer;
+use Symfony\Component\Process\InputStream;
 use function Amp\call;
 
 final class SerializedCache implements Cache
@@ -61,7 +63,10 @@ final class SerializedCache implements Cache
             throw new CacheException('Cannot store NULL in ' . self::class);
         }
 
-        $value = $this->serializer->serialize($value);
+        if (!($value instanceof InputStream) && !($value instanceof Iterator)) {
+            $value = $this->serializer->serialize($value);
+        }
+
         return $this->cache->set($key, $value, $ttl);
     }
 
